@@ -804,7 +804,8 @@ public class GitSCM extends GitSCMBackwardCompatibility {
             AbstractProject<?, ?> project = build.getProject();
             if (!project.isDisabled()) {
                 log.println("Scheduling another build to catch up with " + project.getFullDisplayName());
-                if (!project.scheduleBuild(0, new SCMTrigger.SCMTriggerCause())) {
+                if (!project.scheduleBuild(10, new SCMTrigger.SCMTriggerCause("This build was triggered by build "
+                                           + build.getNumber() +  " because more than one build candidate was found.\n"))) {
                     log.println("WARNING: multiple candidate revisions, but unable to schedule build of " + project.getFullDisplayName());
                 }
             }
@@ -879,6 +880,8 @@ public class GitSCM extends GitSCMBackwardCompatibility {
         retrieveChanges(build, git, listener);
         Build revToBuild = determineRevisionToBuild(build, buildData, environment, git, listener);
 
+        buildData.saveBuild(revToBuild);
+
         environment.put(GIT_COMMIT, revToBuild.revision.getSha1String());
         Branch branch = Iterables.getFirst(revToBuild.revision.getBranches(),null);
         if (branch!=null)   // null for a detached HEAD
@@ -898,7 +901,6 @@ public class GitSCM extends GitSCMBackwardCompatibility {
             throw new IOException("Could not checkout " + revToBuild.revision.getSha1String(), e);
         }
 
-        buildData.saveBuild(revToBuild);
         build.addAction(new GitTagAction(build, buildData));
 
         computeChangeLog(git, revToBuild.revision, listener, previousBuildData, new FilePath(changelogFile),
